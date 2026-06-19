@@ -182,15 +182,18 @@ private struct SummaryRegionRow: View {
     private var percentile: Int { Int((result.percentile * 100).rounded()) }
 
     private var deltaLabel: String {
-        let pts = result.percentilePointsDelta
-        if pts == 0 { return "No change" }
+        let pts = result.standingPointsDelta
+        let label = result.lastScanDate.shortLabel
+        if pts == 0 { return "Even with \(label)" }
         let arrow = pts > 0 ? "\u{2191}" : "\u{2193}"
-        return "\(arrow) \(abs(pts)) pts since \(result.lastScanDate.shortLabel)"
+        let direction = pts > 0 ? "ahead of" : "behind"
+        return "\(arrow) \(abs(pts)) pts \(direction) \(label)"
     }
 
     private var deltaColor: Color {
-        if result.isImproved { return Theme.normal }
-        if result.percentilePointsDelta < 0 { return result.status == .alert ? Theme.alert : Theme.watch }
+        let pts = result.standingPointsDelta
+        if pts > 0 { return Theme.normal }
+        if pts < 0 { return result.status == .alert ? Theme.alert : Theme.watch }
         return Theme.textSecondary
     }
 

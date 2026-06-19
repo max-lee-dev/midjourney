@@ -332,6 +332,18 @@ struct OrganScanResult: Identifiable {
     /// Whole percentile points moved since the last visit (signed).
     var percentilePointsDelta: Int { Int((percentileDelta * 100).rounded()) }
 
+    /// Cohort standing this scan in points (always "higher = better for you").
+    var currentStanding: Int {
+        let pct = Int((percentile * 100).rounded())
+        return metric.higherIsBetter ? pct : 100 - pct
+    }
+    var previousStanding: Int {
+        let pct = Int((previousPercentile * 100).rounded())
+        return metric.higherIsBetter ? pct : 100 - pct
+    }
+    /// Direction-correct movement vs the prior scan (signed; + = improved).
+    var standingPointsDelta: Int { currentStanding - previousStanding }
+
     /// Whether the raw value moved in the clinically better direction.
     var isImproved: Bool {
         metric.higherIsBetter ? valueDelta > 0 : valueDelta < 0

@@ -260,21 +260,29 @@ private struct OrganWrappedCard: View {
     @State private var showDetails = false
 
     private var tint: Color { Theme.color(for: result.status) }
-    private var targetPercentile: Int { Int((result.percentile * 100).rounded()) }
+    private var targetDelta: Int { abs(result.standingPointsDelta) }
 
-    private var standingCaption: String {
-        let pct = targetPercentile
-        let betterThan = result.metric.higherIsBetter ? pct : 100 - pct
-        return "Ahead of \(betterThan)% of \(result.cohortLabel)"
+    private var percentileCaption: String {
+        "\(result.percentileLabel) percentile \u{00B7} \(result.cohortLabel)"
+    }
+
+    private var baselineDescriptor: String {
+        let label = result.lastScanDate.shortLabel.uppercased()
+        let pts = result.standingPointsDelta
+        if pts > 0 { return "AHEAD OF \(label)" }
+        if pts < 0 { return "BEHIND \(label)" }
+        return "EVEN WITH \(label)"
     }
 
     private var deltaColor: Color {
-        if result.isImproved { return Theme.normal }
-        return result.status == .alert ? Theme.alert : Theme.watch
+        let pts = result.standingPointsDelta
+        if pts > 0 { return Theme.normal }
+        if pts < 0 { return result.status == .alert ? Theme.alert : Theme.watch }
+        return Theme.textSecondary
     }
 
     private var deltaArrow: String {
-        let pts = result.percentilePointsDelta
+        let pts = result.standingPointsDelta
         if pts > 0 { return "arrow.up.right" }
         if pts < 0 { return "arrow.down.right" }
         return "arrow.right"
@@ -291,26 +299,30 @@ private struct OrganWrappedCard: View {
                 .font(Theme.hudTitle(size: 24))
                 .foregroundStyle(Theme.textPrimary)
 
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: deltaArrow)
+                    .font(.system(size: 30, weight: .bold))
+                    .foregroundStyle(deltaColor)
                 Text("\(counter)")
                     .font(Theme.hudData(size: 56))
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(deltaColor)
                     .contentTransition(.numericText())
-                Text(ordinalSuffix(counter).uppercased())
+                Text("PTS")
                     .font(Theme.hudData(size: 24))
-                    .foregroundStyle(Theme.accent)
-                Text("PERCENTILE")
-                    .font(Theme.hudLabel(size: 12))
-                    .tracking(1.2)
-                    .foregroundStyle(Theme.textSecondary)
-                    .padding(.leading, 4)
+                    .foregroundStyle(deltaColor)
             }
             .padding(.top, 6)
 
-            Text(standingCaption)
-                .font(.system(size: 13, weight: .medium))
+            Text(baselineDescriptor)
+                .font(Theme.hudLabel(size: 12))
+                .tracking(1.2)
+                .foregroundStyle(deltaColor)
+                .padding(.top, 2)
+
+            Text(percentileCaption)
+                .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(Theme.textSecondary)
-                .padding(.top, 4)
+                .padding(.top, 6)
 
             Text(result.metric.higherIsBetter ? "Higher is better" : "Lower is better")
                 .font(.system(size: 10, weight: .semibold))
@@ -325,25 +337,12 @@ private struct OrganWrappedCard: View {
             )
             .padding(.top, 18)
 
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 7) {
-                    Image(systemName: deltaArrow)
-                        .font(.system(size: 12, weight: .bold))
-                    Text("\(abs(result.percentilePointsDelta)) pts since \(result.lastScanDate.shortLabel)")
-                        .font(.system(size: 13, weight: .semibold))
-                }
-                .foregroundStyle(deltaColor)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .overlay(Rectangle().strokeBorder(deltaColor.opacity(0.45), lineWidth: 1))
-
-                Text(valueChange)
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Theme.textSecondary)
-            }
-            .padding(.top, 14)
-            .opacity(showDetails ? 1 : 0)
-            .offset(y: showDetails ? 0 : 10)
+            Text(valueChange)
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .foregroundStyle(Theme.textSecondary)
+                .padding(.top, 14)
+                .opacity(showDetails ? 1 : 0)
+                .offset(y: showDetails ? 0 : 10)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 24)
@@ -364,27 +363,15 @@ private struct OrganWrappedCard: View {
         }
 
         Task { @MainActor in
-            let target = targetPercentile
-            let frames = max(target, 1)
+            let target = targetDelta
+            guard target > 0 else { counter = 0; return }
+            let frames = target
             let perFrame = 1.0 / Double(frames)
             for i in 0...frames {
                 counter = Int((Double(target) * Double(i) / Double(frames)).rounded())
                 try? await Task.sleep(for: .seconds(perFrame))
             }
             counter = target
-        }
-    }
-
-    private func ordinalSuffix(_ n: Int) -> String {
-        switch n % 100 {
-        case 11, 12, 13: return "th"
-        default:
-            switch n % 10 {
-            case 1: return "st"
-            case 2: return "nd"
-            case 3: return "rd"
-            default: return "th"
-            }
         }
     }
 }
