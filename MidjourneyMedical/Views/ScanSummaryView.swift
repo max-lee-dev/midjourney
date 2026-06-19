@@ -90,15 +90,10 @@ struct ScanSummaryView: View {
 
     private var scrollContent: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 28) {
-                Color.clear.frame(height: heroSpacer)
-                headerBlock
-                statsRow
-                regionsSection
-                viewHistoryButton
+            VStack(spacing: 0) {
+                heroSpacerGradient
+                contentColumn
             }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 40)
             .background(
                 GeometryReader { proxy in
                     Color.clear.preference(
@@ -112,6 +107,35 @@ struct ScanSummaryView: View {
         .onPreferenceChange(ScanScrollOffsetKey.self) { value in
             scrollOffset = value
         }
+    }
+
+    /// Clear over the body, fading to the solid background at its base so the
+    /// opaque content below cleanly covers the figure as it scrolls up.
+    private var heroSpacerGradient: some View {
+        LinearGradient(
+            stops: [
+                .init(color: .clear, location: 0),
+                .init(color: .clear, location: 0.72),
+                .init(color: Theme.background, location: 1)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .frame(height: heroSpacer)
+        .allowsHitTesting(false)
+    }
+
+    private var contentColumn: some View {
+        VStack(alignment: .leading, spacing: 28) {
+            headerBlock
+            statsRow
+            regionsSection
+            viewHistoryButton
+        }
+        .padding(.horizontal, 24)
+        .padding(.bottom, 40)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.background)
     }
 
     private var headerBlock: some View {
