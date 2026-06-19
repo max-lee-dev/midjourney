@@ -160,21 +160,15 @@ struct BackToTimelineButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 13, weight: .bold))
-                Text("TIMELINE")
-                    .font(Theme.hudLabel(size: 12))
-                    .tracking(1)
-            }
-            .foregroundStyle(Theme.accent)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 9)
-            .background(Theme.accent.opacity(0.08), in: Rectangle())
-            .overlay(Rectangle().strokeBorder(Theme.accent.opacity(0.4), lineWidth: 1))
+            Image(systemName: "chevron.left")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(Theme.accent)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .padding(.leading, 16)
+        .padding(.leading, 4)
         .padding(.top, 8)
         .accessibilityLabel("Back to timeline")
     }
