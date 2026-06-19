@@ -74,7 +74,9 @@ struct OrganWrappedView: View {
                         OrganWrappedCard(result: results[index])
                             .id(index)
                     } else {
-                        WrappedSummaryCard(results: results, onViewSummary: { showFullSummary = true })
+                        WrappedSummaryCard(results: results, onViewSummary: {
+                            withAnimation(.easeInOut(duration: 0.45)) { showFullSummary = true }
+                        })
                             .id("summary")
                     }
                 }
@@ -86,6 +88,12 @@ struct OrganWrappedView: View {
                         ? .move(edge: .top).combined(with: .opacity)
                         : .move(edge: .bottom).combined(with: .opacity)
                 ))
+            }
+
+            if showFullSummary {
+                ScanSummaryView(results: results, onComplete: handleViewHistory)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .zIndex(1)
             }
         }
         .contentShape(Rectangle())
@@ -104,21 +112,10 @@ struct OrganWrappedView: View {
             guard !Task.isCancelled else { return }
             advance()
         }
-        .fullScreenCover(isPresented: $showFullSummary) {
-            ScanSummaryView(results: results, onComplete: handleViewHistory)
-        }
     }
 
     private func handleViewHistory() {
-        withAnimation(.easeInOut(duration: 0.5)) {
-            showFullSummary = false
-        }
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(480))
-            withAnimation(.easeInOut(duration: 0.65)) {
-                onComplete(.timeline)
-            }
-        }
+        onComplete(.timeline)
     }
 
     private func advance() {
