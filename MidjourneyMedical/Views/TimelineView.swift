@@ -77,7 +77,6 @@ struct TimelineView: View {
                 }
             }
             .padding(.horizontal, 2)
-            .horizontalScrollEdgeFadeTracking()
         }
         .horizontalEdgeFade(0.05)
     }
@@ -176,7 +175,6 @@ struct TimelineView: View {
                         scanChip(scan)
                     }
                 }
-                .horizontalScrollEdgeFadeTracking()
             }
             .contentMargins(.horizontal, 2, for: .scrollContent)
             .horizontalEdgeFade(0.07)
@@ -273,13 +271,17 @@ private struct HorizontalScrollMetrics: Equatable {
     var showsTrailingFade: Bool {
         canScroll && contentOffset + viewportWidth < contentWidth - Self.edgeTolerance
     }
-}
 
-private struct HorizontalScrollMetricsPreferenceKey: PreferenceKey {
-    static var defaultValue = HorizontalScrollMetrics()
-
-    static func reduce(value: inout HorizontalScrollMetrics, nextValue: () -> HorizontalScrollMetrics) {
-        value = nextValue()
+    @available(iOS 18.0, *)
+    static func fromScrollGeometry(_ geometry: ScrollGeometry) -> HorizontalScrollMetrics {
+        let insets = geometry.contentInsets
+        let visibleWidth = geometry.containerSize.width - insets.leading - insets.trailing
+        let offset = max(0, geometry.contentOffset.x + insets.leading)
+        return HorizontalScrollMetrics(
+            contentOffset: offset,
+            contentWidth: geometry.contentSize.width,
+            viewportWidth: visibleWidth
+        )
     }
 }
 
@@ -289,28 +291,18 @@ private struct HorizontalScrollMetricsPreferenceKey: PreferenceKey {
 private struct HorizontalEdgeFade: ViewModifier {
     var fade: CGFloat
 
-    @State private var scrollMetrics = HorizontalScrollMetrics()
-    @State private var viewportWidth: CGFloat = 0
-
-    private var metrics: HorizontalScrollMetrics {
-        var merged = scrollMetrics
-        merged.viewportWidth = viewportWidth
-        return merged
-    }
+    @State private var metrics = HorizontalScrollMetrics()
 
     func body(content: Content) -> some View {
         content
-            .coordinateSpace(name: "horizontalEdgeFadeScroll")
             .background {
-                GeometryReader { geo in
-                    Color.clear
-                        .onAppear { viewportWidth = geo.size.width }
-                        .onChange(of: geo.size.width) { _, width in
-                            viewportWidth = width
-                        }
+                if #available(iOS 18.0, *) {
+                    EmptyView()
+                } else {
+                    HorizontalScrollMetricsObserver(metrics: $metrics)
                 }
             }
-            .onPreferenceChange(HorizontalScrollMetricsPreferenceKey.self) { scrollMetrics = $0 }
+            .modifier(HorizontalScrollMetricsTrackingModifier(metrics: $metrics))
             .mask(edgeFadeMask)
     }
 
@@ -343,23 +335,124 @@ private struct HorizontalEdgeFade: ViewModifier {
     }
 }
 
+/// Uses ScrollGeometry on iOS 18+ for live scroll updates.
+private struct HorizontalScrollMetricsTrackingModifier: ViewModifier {
+    @Binding var metrics: HorizontalScrollMetrics
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content.onScrollGeometryChange(for: HorizontalScrollMetrics.self) { geometry in
+                HorizontalScrollMetrics.fromScrollGeometry(geometry)
+            } action: { _, newValue in
+                metrics = newValue
+            }
+        } else {
+            content
+        }
+    }
+}
+
+/// Observes the underlying UIScrollView on iOS 17 where ScrollGeometry is unavailable.
+private struct HorizontalScrollMetricsObserver: UIViewRepresentable {
+    @Binding var metrics: HorizontalScrollMetrics
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(metrics: $metrics)
+    }
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView(frame: .zero)
+        view.isUserInteractionEnabled = false
+        view.backgroundColor = .clear
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        context.coordinator.attachIfNeeded(from: uiView)
+    }
+
+    final class Coordinator {
+        @Binding var metrics: HorizontalScrollMetrics
+        private var contentOffsetObservation: NSKeyValueObservation?
+        private var contentSizeObservation: NSKeyValueObservation?
+        private var boundsObservation: NSKeyValueObservation?
+        private weak var scrollView: UIScrollView?
+
+        init(metrics: Binding<HorizontalScrollMetrics>) {
+            _metrics = metrics
+        }
+
+        func attachIfNeeded(from view: UIView) {
+            guard scrollView == nil else {
+                publish(from: scrollView)
+                return
+            }
+
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.scrollView == nil else { return }
+                guard let scrollView = Self.locateScrollView(near: view) else { return }
+                self.scrollView = scrollView
+
+                self.contentOffsetObservation = scrollView.observe(\.contentOffset, options: [.initial, .new]) { [weak self] scrollView, _ in
+                    self?.publish(from: scrollView)
+                }
+                self.contentSizeObservation = scrollView.observe(\.contentSize, options: [.initial, .new]) { [weak self] scrollView, _ in
+                    self?.publish(from: scrollView)
+                }
+                self.boundsObservation = scrollView.observe(\.bounds, options: [.initial, .new]) { [weak self] scrollView, _ in
+                    self?.publish(from: scrollView)
+                }
+            }
+        }
+
+        private static func locateScrollView(near view: UIView) -> UIScrollView? {
+            if let scrollView = view.enclosingScrollView { return scrollView }
+
+            var ancestor: UIView? = view.superview
+            while let current = ancestor {
+                if let scrollView = findScrollView(in: current) { return scrollView }
+                ancestor = current.superview
+            }
+
+            return nil
+        }
+
+        private static func findScrollView(in view: UIView) -> UIScrollView? {
+            if let scrollView = view as? UIScrollView { return scrollView }
+            for subview in view.subviews {
+                if let scrollView = findScrollView(in: subview) { return scrollView }
+            }
+            return nil
+        }
+
+        private func publish(from scrollView: UIScrollView?) {
+            guard let scrollView else { return }
+            metrics = HorizontalScrollMetrics(
+                contentOffset: max(0, scrollView.contentOffset.x),
+                contentWidth: scrollView.contentSize.width,
+                viewportWidth: scrollView.bounds.width
+            )
+        }
+
+        deinit {
+            contentOffsetObservation?.invalidate()
+            contentSizeObservation?.invalidate()
+            boundsObservation?.invalidate()
+        }
+    }
+}
+
+private extension UIView {
+    var enclosingScrollView: UIScrollView? {
+        sequence(first: self, next: { $0?.superview })
+            .compactMap { $0 as? UIScrollView }
+            .first
+    }
+}
+
 private extension View {
     func horizontalEdgeFade(_ fade: CGFloat = 0.06) -> some View {
         modifier(HorizontalEdgeFade(fade: fade))
-    }
-
-    func horizontalScrollEdgeFadeTracking() -> some View {
-        background {
-            GeometryReader { geo in
-                Color.clear.preference(
-                    key: HorizontalScrollMetricsPreferenceKey.self,
-                    value: HorizontalScrollMetrics(
-                        contentOffset: -geo.frame(in: .named("horizontalEdgeFadeScroll")).minX,
-                        contentWidth: geo.size.width
-                    )
-                )
-            }
-        }
     }
 }
 
