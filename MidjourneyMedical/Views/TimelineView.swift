@@ -77,6 +77,7 @@ struct TimelineView: View {
                 }
             }
             .padding(.horizontal, 2)
+            .horizontalScrollEdgeFadeTracking()
         }
         .horizontalEdgeFade(0.05)
     }
@@ -175,6 +176,7 @@ struct TimelineView: View {
                         scanChip(scan)
                     }
                 }
+                .horizontalScrollEdgeFadeTracking()
             }
             .contentMargins(.horizontal, 2, for: .scrollContent)
             .horizontalEdgeFade(0.07)
@@ -253,30 +255,111 @@ struct TimelineView: View {
     }
 }
 
+private struct HorizontalScrollMetrics: Equatable {
+    var contentOffset: CGFloat = 0
+    var contentWidth: CGFloat = 0
+    var viewportWidth: CGFloat = 0
+
+    private static let edgeTolerance: CGFloat = 1
+
+    var canScroll: Bool {
+        contentWidth > viewportWidth + Self.edgeTolerance
+    }
+
+    var showsLeadingFade: Bool {
+        canScroll && contentOffset > Self.edgeTolerance
+    }
+
+    var showsTrailingFade: Bool {
+        canScroll && contentOffset + viewportWidth < contentWidth - Self.edgeTolerance
+    }
+}
+
+private struct HorizontalScrollMetricsPreferenceKey: PreferenceKey {
+    static var defaultValue = HorizontalScrollMetrics()
+
+    static func reduce(value: inout HorizontalScrollMetrics, nextValue: () -> HorizontalScrollMetrics) {
+        value = nextValue()
+    }
+}
+
 /// Fades the leading and trailing edges of a horizontal scroller so off-screen
-/// content dissolves out instead of being hard-clipped.
+/// content dissolves out instead of being hard-clipped. Each edge only fades
+/// when there is more content in that direction.
 private struct HorizontalEdgeFade: ViewModifier {
     var fade: CGFloat
 
+    @State private var scrollMetrics = HorizontalScrollMetrics()
+    @State private var viewportWidth: CGFloat = 0
+
+    private var metrics: HorizontalScrollMetrics {
+        var merged = scrollMetrics
+        merged.viewportWidth = viewportWidth
+        return merged
+    }
+
     func body(content: Content) -> some View {
-        content.mask(
-            LinearGradient(
-                stops: [
-                    .init(color: .clear, location: 0),
-                    .init(color: .black, location: fade),
-                    .init(color: .black, location: 1 - fade),
-                    .init(color: .clear, location: 1)
-                ],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
+        content
+            .coordinateSpace(name: "horizontalEdgeFadeScroll")
+            .background {
+                GeometryReader { geo in
+                    Color.clear
+                        .onAppear { viewportWidth = geo.size.width }
+                        .onChange(of: geo.size.width) { _, width in
+                            viewportWidth = width
+                        }
+                }
+            }
+            .onPreferenceChange(HorizontalScrollMetricsPreferenceKey.self) { scrollMetrics = $0 }
+            .mask(edgeFadeMask)
+    }
+
+    private var edgeFadeMask: some View {
+        LinearGradient(
+            stops: edgeFadeStops,
+            startPoint: .leading,
+            endPoint: .trailing
         )
+    }
+
+    private var edgeFadeStops: [Gradient.Stop] {
+        var stops: [Gradient.Stop] = []
+
+        if metrics.showsLeadingFade {
+            stops.append(.init(color: .clear, location: 0))
+            stops.append(.init(color: .black, location: fade))
+        } else {
+            stops.append(.init(color: .black, location: 0))
+        }
+
+        if metrics.showsTrailingFade {
+            stops.append(.init(color: .black, location: 1 - fade))
+            stops.append(.init(color: .clear, location: 1))
+        } else {
+            stops.append(.init(color: .black, location: 1))
+        }
+
+        return stops
     }
 }
 
 private extension View {
     func horizontalEdgeFade(_ fade: CGFloat = 0.06) -> some View {
         modifier(HorizontalEdgeFade(fade: fade))
+    }
+
+    func horizontalScrollEdgeFadeTracking() -> some View {
+        background {
+            GeometryReader { geo in
+                Color.clear.preference(
+                    key: HorizontalScrollMetricsPreferenceKey.self,
+                    value: HorizontalScrollMetrics(
+                        contentOffset: -geo.frame(in: .named("horizontalEdgeFadeScroll")).minX,
+                        contentWidth: geo.size.width
+                    )
+                )
+            }
+        }
     }
 }
 
