@@ -6,6 +6,21 @@ struct ScanSummaryView: View {
     var onComplete: () -> Void
 
     @State private var appeared = false
+    @State private var scrollOffset: CGFloat = 0
+
+    private let heroHeight: CGFloat = 340
+    /// Content begins just below the body; scrolling past this fades it out.
+    private let heroSpacer: CGFloat = 300
+
+    /// How far the list has been scrolled up (clamped to >= 0).
+    private var scrolledUp: CGFloat { max(0, -scrollOffset) }
+
+    /// Body fully dissolves after ~200pt of upward scroll.
+    private var heroOpacity: Double { Double(max(0, 1 - scrolledUp / 200)) }
+
+    /// Subtle parallax drift + shrink as the body fades away.
+    private var heroOffsetY: CGFloat { -scrolledUp * 0.35 }
+    private var heroScale: CGFloat { max(0.9, 1 - scrolledUp / 1600) }
 
     private var statusMap: [BodyRegion: HealthStatus] {
         Dictionary(uniqueKeysWithValues: results.map { ($0.region, $0.status) })
@@ -28,13 +43,17 @@ struct ScanSummaryView: View {
     }
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             Theme.background.ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                heroBody
-                scrollContent
-            }
+            heroBody
+                .frame(height: heroHeight)
+                .scaleEffect(heroScale, anchor: .top)
+                .offset(y: heroOffsetY)
+                .opacity(heroOpacity)
+                .allowsHitTesting(false)
+
+            scrollContent
         }
         .onAppear {
             withAnimation(.easeOut(duration: 0.5)) { appeared = true }
@@ -47,7 +66,7 @@ struct ScanSummaryView: View {
         ZStack(alignment: .bottom) {
             WrappedBodyFocusView(statuses: statusMap, focusedRegion: nil, spin: true, colorful: true)
                 .frame(maxWidth: .infinity)
-                .frame(height: 340)
+                .frame(height: heroHeight)
                 .mask(
                     LinearGradient(
                         colors: [.white, .white, .clear],
@@ -64,7 +83,7 @@ struct ScanSummaryView: View {
             .frame(height: 120)
             .allowsHitTesting(false)
         }
-        .frame(height: 340)
+        .frame(height: heroHeight)
     }
 
     // MARK: - Scroll
@@ -72,6 +91,7 @@ struct ScanSummaryView: View {
     private var scrollContent: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 28) {
+                Color.clear.frame(height: heroSpacer)
                 headerBlock
                 statsRow
                 regionsSection
@@ -79,6 +99,18 @@ struct ScanSummaryView: View {
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 40)
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: ScanScrollOffsetKey.self,
+                        value: proxy.frame(in: .named("scanScroll")).minY
+                    )
+                }
+            )
+        }
+        .coordinateSpace(name: "scanScroll")
+        .onPreferenceChange(ScanScrollOffsetKey.self) { value in
+            scrollOffset = value
         }
     }
 
@@ -170,6 +202,15 @@ struct ScanSummaryView: View {
         .opacity(appeared ? 1 : 0)
         .animation(.easeOut(duration: 0.4).delay(0.35), value: appeared)
         .accessibilityLabel("View history")
+    }
+}
+
+// MARK: - Scroll tracking
+
+private struct ScanScrollOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
 

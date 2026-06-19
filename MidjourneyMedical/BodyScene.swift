@@ -23,6 +23,11 @@ enum BodyPointCloud {
             ($0, .init($0.anchor3D), statusColor(statuses[$0] ?? .normal))
         }
 
+        // The body stays a neutral cool-gray; "colorful" only boosts the
+        // per-region status tints so color reads in the highlighted spots
+        // (and renders the cloud at higher quality).
+        let effectiveTint = colorful ? max(tintStrength, 2.4) : tintStrength
+
         var positions: [SCNVector3] = []
         var colors: [Float] = []
         positions.reserveCapacity(raw.count)
@@ -30,7 +35,7 @@ enum BodyPointCloud {
 
         for p in raw {
             positions.append(SCNVector3(p.x, p.y, p.z))
-            let c = etherealColor(for: p, tints: tints, focused: focused, tintStrength: tintStrength, colorful: colorful)
+            let c = etherealColor(for: p, tints: tints, focused: focused, tintStrength: effectiveTint)
             colors.append(c.x); colors.append(c.y); colors.append(c.z)
         }
         return makeGeometry(positions: positions, colors: colors, colorful: colorful)
@@ -163,26 +168,20 @@ enum BodyPointCloud {
         for p: SIMD3<Float>,
         tints: [(region: BodyRegion, center: SIMD3<Float>, color: SIMD3<Float>)],
         focused: BodyRegion? = nil,
-        tintStrength: Float = 1.0,
-        colorful: Bool = false
+        tintStrength: Float = 1.0
     ) -> SIMD3<Float> {
-        let base = colorful ? gradientColor(for: p) : SIMD3<Float>(0.66, 0.70, 0.76)
+        let gray = SIMD3<Float>(0.66, 0.70, 0.76)
 
         // Keep the whole figure present, only gently dimming the extremities.
         let vertical = 0.82 + 0.18 * (1 - min(1, abs(p.y - 0.02) / 0.95))
-        // Key light from the front: the camera-facing surface is brightest. In
-        // colorful mode the floor is lifted so the back of the figure keeps its
-        // saturation as the body spins (instead of falling into shadow).
-        let front = colorful
-            ? 0.55 + 0.45 * smoothstep(-0.14, 0.14, p.z)
-            : 0.30 + 0.70 * smoothstep(-0.14, 0.14, p.z)
+        // Key light from the front: the camera-facing surface is brightest.
+        let front = 0.30 + 0.70 * smoothstep(-0.14, 0.14, p.z)
         // Subtle rim on the outer silhouette so the body's outline stays sharp.
         let rim = 0.12 * smoothstep(0.24, 0.33, abs(p.x))
         let shimmer = 0.97 + 0.03 * sin(p.y * 24 + p.x * 15 + p.z * 11)
-        let ceiling: Float = colorful ? 1.0 : 0.94
-        let brightness = min(ceiling, (front * vertical + rim) * shimmer * 0.82)
+        let brightness = min(0.94, (front * vertical + rim) * shimmer * 0.82)
 
-        var color = base * brightness
+        var color = gray * brightness
 
         // Strong tints widen the reach of each region and lift the saturation so
         // every region reads in its status color simultaneously (ambient view).
@@ -213,26 +212,6 @@ enum BodyPointCloud {
             }
         }
         return color
-    }
-
-    /// Vivid vertical gradient (feet -> head) for the colorful scan look:
-    /// magenta -> violet -> blue -> cyan/teal. `p.y` runs ~-0.95 (feet) to
-    /// ~0.96 (head); a gentle lateral hue shift adds richness across the body.
-    private static func gradientColor(for p: SIMD3<Float>) -> SIMD3<Float> {
-        let stops: [SIMD3<Float>] = [
-            SIMD3(0.85, 0.25, 0.70), // feet — magenta
-            SIMD3(0.45, 0.35, 0.95), // hips/torso — violet
-            SIMD3(0.25, 0.55, 0.95), // chest — blue
-            SIMD3(0.30, 0.85, 0.85)  // head — cyan/teal
-        ]
-        let t = max(0, min(1, (p.y + 0.95) / 1.91))
-        let scaled = t * Float(stops.count - 1)
-        let idx = min(Int(scaled), stops.count - 2)
-        let frac = scaled - Float(idx)
-        var color = mix(stops[idx], stops[idx + 1], frac)
-        // Subtle lateral shift so left/right edges read with slightly different hue.
-        color += SIMD3(0.06, -0.03, 0.04) * p.x
-        return simd_clamp(color, SIMD3<Float>(repeating: 0), SIMD3<Float>(repeating: 1))
     }
 
     private static func statusColor(_ status: HealthStatus) -> SIMD3<Float> {
