@@ -124,11 +124,11 @@ struct CustomTabBar: View {
         Item(tab: .baseline, title: "Baseline", icon: "person.2"),
     ]
 
-    private let barHeight: CGFloat = 54
-    private let scanButtonSize: CGFloat = 48
+    private let barHeight: CGFloat = 58
+    private let scanButtonSize: CGFloat = 52
 
     private func handleSelect(_ tab: RootView.Tab) {
-        withAnimation(.easeOut(duration: 0.2)) {
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
             selectedTab = tab
         }
     }
@@ -138,9 +138,12 @@ struct CustomTabBar: View {
         return Button {
             handleSelect(item.tab)
         } label: {
-            VStack(spacing: 4) {
+            VStack(spacing: 5) {
                 Image(systemName: item.icon)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: 19, weight: isSelected ? .bold : .regular))
+                    .frame(height: 22)
+                    .scaleEffect(isSelected ? 1.05 : 1)
+
                 Text(item.title)
                     .hudCaptionStyle()
                     .lineLimit(1)
@@ -149,6 +152,15 @@ struct CustomTabBar: View {
             .foregroundStyle(isSelected ? Theme.accent : Theme.textSecondary)
             .frame(maxWidth: .infinity)
             .frame(height: barHeight)
+            // Active-channel tick — a glowing gold marker on the top rail.
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(Theme.accent)
+                    .frame(width: 22, height: 2)
+                    .shadow(color: Theme.accent.opacity(0.9), radius: 5)
+                    .opacity(isSelected ? 1 : 0)
+                    .scaleEffect(x: isSelected ? 1 : 0.3, anchor: .center)
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -161,18 +173,37 @@ struct CustomTabBar: View {
         return Button {
             handleSelect(.scan)
         } label: {
-            VStack(spacing: 4) {
+            VStack(spacing: 5) {
                 ZStack {
+                    // Outer concentric HUD ring.
                     Circle()
-                        .fill(isSelected ? Theme.accent : Theme.accent.opacity(0.16))
+                        .strokeBorder(Theme.accent.opacity(isSelected ? 0.6 : 0.28), lineWidth: 1)
+                        .frame(width: scanButtonSize + 10, height: scanButtonSize + 10)
+
+                    Circle()
+                        .fill(
+                            isSelected
+                                ? LinearGradient(
+                                    colors: [Theme.accent, Theme.accentDeep],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                                : LinearGradient(
+                                    colors: [Theme.accent.opacity(0.16), Theme.accent.opacity(0.06)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                        )
+                        .frame(width: scanButtonSize, height: scanButtonSize)
+                        .overlay(Circle().strokeBorder(Theme.accent.opacity(isSelected ? 0 : 0.55), lineWidth: 1))
+                        // Mask a clean cut-out where the button meets the bar.
+                        .overlay(Circle().strokeBorder(Theme.background, lineWidth: 4))
+
                     Image(systemName: "viewfinder")
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.system(size: 21, weight: .bold))
                         .foregroundStyle(isSelected ? Color.black : Theme.accent)
                 }
-                .frame(width: scanButtonSize, height: scanButtonSize)
-                .overlay(Circle().strokeBorder(Theme.background, lineWidth: 3))
-                .overlay(Circle().strokeBorder(Theme.accent.opacity(isSelected ? 0 : 0.5), lineWidth: 1))
-                .shadow(color: Theme.accent.opacity(isSelected ? 0.4 : 0), radius: 8)
+                .shadow(color: Theme.accent.opacity(isSelected ? 0.5 : 0.18), radius: isSelected ? 12 : 6)
 
                 Text("Scan")
                     .hudCaptionStyle()
@@ -180,7 +211,7 @@ struct CustomTabBar: View {
             }
         }
         .buttonStyle(.plain)
-        .offset(y: -10)
+        .offset(y: -14)
         .accessibilityLabel("Scan")
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
@@ -194,7 +225,7 @@ struct CustomTabBar: View {
                 .frame(maxWidth: .infinity)
 
                 Color.clear
-                    .frame(width: scanButtonSize + 10)
+                    .frame(width: scanButtonSize + 14)
 
                 HStack(spacing: 0) {
                     ForEach(rightItems, content: tabButton)
@@ -207,13 +238,22 @@ struct CustomTabBar: View {
         }
         .padding(.horizontal, 6)
         .background(
-            Theme.background
-                .overlay(alignment: .top) {
-                    Rectangle()
-                        .fill(Theme.stroke)
-                        .frame(height: 1)
-                }
-                .ignoresSafeArea(edges: .bottom)
+            LinearGradient(
+                colors: [Theme.surfaceElevated, Theme.background],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .background(Theme.background)
+            // Gold hairline that glows toward the center, fading at the edges.
+            .overlay(alignment: .top) {
+                LinearGradient(
+                    colors: [.clear, Theme.accent.opacity(0.5), .clear],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(height: 1)
+            }
+            .ignoresSafeArea(edges: .bottom)
         )
     }
 }
