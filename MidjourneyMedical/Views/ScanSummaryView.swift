@@ -244,22 +244,32 @@ private struct SummaryRegionRow: View {
     let result: OrganScanResult
 
     private var tint: Color { Theme.color(for: result.status) }
-    private var percentile: Int { Int((result.percentile * 100).rounded()) }
+    private var pts: Int { abs(result.standingPointsDelta) }
 
-    private var deltaLabel: String {
-        let pts = result.standingPointsDelta
-        let label = result.lastScanDate.shortLabel
-        if pts == 0 { return "Even with \(label)" }
-        let arrow = pts > 0 ? "\u{2191}" : "\u{2193}"
-        let direction = pts > 0 ? "ahead of" : "behind"
-        return "\(arrow) \(abs(pts)) pts \(direction) \(label)"
+    private var baselineDescriptor: String {
+        let label = result.lastScanDate.shortLabel.uppercased()
+        let delta = result.standingPointsDelta
+        if delta > 0 { return "AHEAD OF \(label)" }
+        if delta < 0 { return "BEHIND \(label)" }
+        return "EVEN WITH \(label)"
     }
 
     private var deltaColor: Color {
-        let pts = result.standingPointsDelta
-        if pts > 0 { return Theme.normal }
-        if pts < 0 { return result.status == .alert ? Theme.alert : Theme.watch }
+        let delta = result.standingPointsDelta
+        if delta > 0 { return Theme.normal }
+        if delta < 0 { return result.status == .alert ? Theme.alert : Theme.watch }
         return Theme.textSecondary
+    }
+
+    private var deltaArrow: String {
+        let delta = result.standingPointsDelta
+        if delta > 0 { return "arrow.up.right" }
+        if delta < 0 { return "arrow.down.right" }
+        return "arrow.right"
+    }
+
+    private var percentileCaption: String {
+        "\(result.percentileLabel) percentile \u{00B7} \(result.cohortLabel)"
     }
 
     var body: some View {
@@ -267,25 +277,33 @@ private struct SummaryRegionRow: View {
             RegionIcon(region: result.region, size: 26, color: tint)
                 .frame(width: 30, height: 30)
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(result.region.displayName)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
-                Text(deltaLabel)
+                Text(percentileCaption)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(deltaColor)
+                    .foregroundStyle(Theme.textSecondary)
             }
 
             Spacer(minLength: 8)
 
             VStack(alignment: .trailing, spacing: 2) {
-                Text(result.percentileLabel)
-                    .font(Theme.hudData(size: 20))
-                    .foregroundStyle(tint)
-                Text("percentile")
-                    .font(.system(size: 9, weight: .semibold))
-                    .tracking(0.5)
-                    .foregroundStyle(Theme.textTertiary)
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Image(systemName: deltaArrow)
+                        .font(.system(size: 20, weight: .bold))
+                    Text("\(pts)")
+                        .font(Theme.hudData(size: 36))
+                        .contentTransition(.numericText())
+                    Text("PTS")
+                        .font(Theme.hudData(size: 14))
+                }
+                .foregroundStyle(deltaColor)
+
+                Text(baselineDescriptor)
+                    .font(Theme.hudLabel(size: 9))
+                    .tracking(0.8)
+                    .foregroundStyle(deltaColor)
             }
         }
         .padding(.vertical, 14)
