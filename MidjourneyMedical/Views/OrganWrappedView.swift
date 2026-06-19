@@ -6,7 +6,7 @@ import SwiftUI
 /// off to the main app.
 struct OrganWrappedView: View {
     let results: [OrganScanResult]
-    var onComplete: () -> Void
+    var onComplete: (RootView.Tab) -> Void
 
     @State private var index = 0
     @State private var navigationDirection: NavigationDirection = .forward
@@ -104,7 +104,19 @@ struct OrganWrappedView: View {
             advance()
         }
         .fullScreenCover(isPresented: $showFullSummary) {
-            ScanSummaryView(results: results, onComplete: onComplete)
+            ScanSummaryView(results: results, onComplete: handleViewHistory)
+        }
+    }
+
+    private func handleViewHistory() {
+        withAnimation(.easeInOut(duration: 0.5)) {
+            showFullSummary = false
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(480))
+            withAnimation(.easeInOut(duration: 0.65)) {
+                onComplete(.timeline)
+            }
         }
     }
 
@@ -165,20 +177,44 @@ struct OrganWrappedView: View {
 
     /// Vertical rail — mirrors head-to-feet progression through the body.
     private var bodyProgressRail: some View {
-        VStack(spacing: 7) {
-            ForEach(Array(results.enumerated()), id: \.offset) { i, result in
-                Rectangle()
-                    .fill(
-                        i == index
-                            ? Theme.color(for: result.status)
-                            : i < index
-                                ? Theme.color(for: result.status).opacity(0.45)
-                                : Theme.accent.opacity(0.18)
-                    )
-                    .frame(width: i == index ? 3 : 2, height: i == index ? 22 : 14)
-                    .animation(.easeInOut(duration: 0.35), value: index)
+        SwiftUI.TimelineView(.periodic(from: .now, by: 1.0 / 30.0)) { timeline in
+            let time = timeline.date.timeIntervalSinceReferenceDate
+            VStack(spacing: 7) {
+                ForEach(Array(results.enumerated()), id: \.offset) { i, result in
+                    progressRailSegment(at: i, result: result, time: time)
+                }
             }
         }
+    }
+
+    private func progressRailSegment(at i: Int, result: OrganScanResult, time: Double) -> some View {
+        let isCurrent = i == index
+        let isPast = i < index
+        let count = max(results.count - 1, 1)
+
+        // Staggered wave top → bottom; active step breathes 1.5× stronger.
+        let stagger = Double(i) / Double(count) * .pi * 1.4
+        let wave = sin(time * 2.2 + stagger)
+        let strength = isCurrent ? 1.5 : 0.85
+        let opacityWobble = 0.18 * strength * wave
+        let scaleWobble = 1 + 0.11 * strength * wave
+
+        let fill: Color = {
+            if isCurrent { return Theme.color(for: result.status) }
+            if isPast { return Theme.color(for: result.status).opacity(0.45) }
+            return Theme.accent.opacity(0.18)
+        }()
+
+        let baseOpacity = isCurrent ? 1.0 : (isPast ? 0.45 : 0.18)
+        let height: CGFloat = isCurrent ? 22 : 14
+        let width: CGFloat = isCurrent ? 3 : 2
+
+        return Rectangle()
+            .fill(fill)
+            .frame(width: width, height: height)
+            .scaleEffect(x: 1, y: scaleWobble, anchor: .center)
+            .opacity(min(1, max(0.08, baseOpacity + opacityWobble)))
+            .animation(.easeInOut(duration: 0.35), value: index)
     }
 
     // MARK: - Top bar
@@ -207,7 +243,7 @@ struct OrganWrappedView: View {
 
             Spacer()
 
-            Button(action: onComplete) {
+            Button { onComplete(.body) } label: {
                 Text("SKIP")
                     .font(Theme.hudLabel(size: 12))
                     .tracking(0.8)
@@ -388,6 +424,6 @@ private struct WrappedSummaryCard: View {
 }
 
 #Preview {
-    OrganWrappedView(results: MockData.organResults(), onComplete: {})
+    OrganWrappedView(results: MockData.organResults(), onComplete: { _ in })
         .preferredColorScheme(.dark)
 }

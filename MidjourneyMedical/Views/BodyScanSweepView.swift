@@ -75,37 +75,54 @@ struct BodyScanSweepView: View {
             Spacer()
 
             VStack(spacing: 16) {
-                if let region = currentRegion {
-                    Text("CAPTURING: \(region.displayName.uppercased())")
-                        .font(Theme.hudLabel(size: 12))
-                        .tracking(0.8)
-                        .foregroundStyle(Theme.textSecondary)
-                        .contentTransition(.opacity)
-                }
-
                 HUDPanel(progress: CGFloat(progress)) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(String(format: "%.2f", secondsRemaining))
-                            .font(.system(size: 42, weight: .heavy, design: .default))
-                            .foregroundStyle(Theme.accent)
-                            .contentTransition(.numericText())
-                            .monospacedDigit()
+                    HStack(alignment: .center, spacing: 16) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(String(format: "%.2f", secondsRemaining))
+                                .font(.system(size: 42, weight: .heavy, design: .default))
+                                .foregroundStyle(Theme.accent)
+                                .contentTransition(.numericText())
+                                .monospacedDigit()
 
-                        Text("SECONDS REMAINING")
-                            .font(Theme.hudLabel(size: 14))
-                            .tracking(1.4)
-                            .foregroundStyle(Theme.textPrimary)
+                            Text("SECONDS REMAINING")
+                                .font(Theme.hudLabel(size: 14))
+                                .tracking(1.4)
+                                .foregroundStyle(Theme.textPrimary)
 
-                        Text("UNTIL SCAN COMPLETE")
-                            .font(Theme.hudCaption(size: 9))
-                            .tracking(0.8)
-                            .foregroundStyle(Theme.textTertiary)
+                            Text("UNTIL SCAN COMPLETE")
+                                .font(Theme.hudCaption(size: 9))
+                                .tracking(0.8)
+                                .foregroundStyle(Theme.textTertiary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                        if let region = currentRegion {
+                            VStack(spacing: 8) {
+                                RegionIcon(region: region, size: 38, color: Theme.accent)
+                                    .id(region)
+                                    .transition(.scale(scale: 0.6).combined(with: .opacity))
+
+                                VStack(spacing: 2) {
+                                    Text("CAPTURING")
+                                        .font(Theme.hudCaption(size: 8))
+                                        .tracking(1.2)
+                                        .foregroundStyle(Theme.textTertiary)
+                                    Text(region.displayName.uppercased())
+                                        .font(Theme.hudLabel(size: 10))
+                                        .tracking(0.6)
+                                        .foregroundStyle(Theme.textSecondary)
+                                        .multilineTextAlignment(.center)
+                                        .contentTransition(.opacity)
+                                }
+                            }
+                            .frame(width: 96)
+                        }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 40)
+            .animation(.easeInOut(duration: 0.35), value: currentRegion)
         }
         .overlay(alignment: .trailing) { progressRail }
     }

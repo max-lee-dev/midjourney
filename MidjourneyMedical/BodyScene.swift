@@ -966,8 +966,8 @@ struct ScanRevealBodyView: UIViewRepresentable {
         weak var scnView: SCNView?
         let cameraNode = SCNNode()
         private var bodyGeometry: SCNGeometry?
-        private let cameraRestPosition = SCNVector3(0, 0.02, 2.85)
-        private let cameraRestLookAt = SCNVector3(0, 0.02, 0)
+        private let cameraRestPosition = SCNVector3(0, -0.02, 3.1)
+        private let cameraRestLookAt = SCNVector3(0, -0.02, 0)
 
         private static let revealModifier = """
         #pragma arguments
@@ -999,8 +999,8 @@ struct ScanRevealBodyView: UIViewRepresentable {
             camera.zNear = 0.01
             camera.zFar = 100
             cameraNode.camera = camera
-            cameraNode.position = SCNVector3(0, 0.02, 2.85)
-            cameraNode.look(at: SCNVector3(0, 0.02, 0))
+            cameraNode.position = cameraRestPosition
+            cameraNode.look(at: cameraRestLookAt)
             scene.rootNode.addChildNode(cameraNode)
 
             return scene

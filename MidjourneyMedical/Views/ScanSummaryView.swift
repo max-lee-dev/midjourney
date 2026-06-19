@@ -75,7 +75,7 @@ struct ScanSummaryView: View {
                 headerBlock
                 statsRow
                 regionsSection
-                exploreButton
+                viewHistoryButton
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 40)
@@ -150,21 +150,26 @@ struct ScanSummaryView: View {
         }
     }
 
-    private var exploreButton: some View {
+    private var viewHistoryButton: some View {
         Button(action: onComplete) {
-            Text("EXPLORE YOUR BODY")
-                .font(Theme.hudLabel(size: 14))
-                .tracking(0.8)
-                .foregroundStyle(Theme.accent)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(Theme.accent.opacity(0.12))
-                .overlay(Rectangle().strokeBorder(Theme.accent, lineWidth: 1.5))
+            HStack(spacing: 8) {
+                Text("VIEW HISTORY")
+                    .font(Theme.hudLabel(size: 14))
+                    .tracking(0.8)
+                Image(systemName: "chart.xyaxis.line")
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            .foregroundStyle(Theme.accent)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(Theme.accent.opacity(0.12))
+            .overlay(Rectangle().strokeBorder(Theme.accent, lineWidth: 1.5))
         }
         .buttonStyle(.plain)
         .padding(.top, 8)
         .opacity(appeared ? 1 : 0)
         .animation(.easeOut(duration: 0.4).delay(0.35), value: appeared)
+        .accessibilityLabel("View history")
     }
 }
 

@@ -4,7 +4,7 @@ import SwiftUI
 /// off to Act 2 (the organ "Wrapped" reveal), then signals completion so the
 /// host can enter the main app.
 struct ScanExperienceFlow: View {
-    var onComplete: () -> Void
+    var onComplete: (RootView.Tab) -> Void
 
     @State private var showWrapped = false
 
@@ -24,6 +24,6 @@ struct ScanExperienceFlow: View {
 }
 
 #Preview {
-    ScanExperienceFlow(onComplete: {})
+    ScanExperienceFlow(onComplete: { _ in })
         .preferredColorScheme(.dark)
 }

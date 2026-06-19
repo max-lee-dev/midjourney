@@ -22,6 +22,8 @@ struct ScanLoadingView: View {
     private let postAcquireDelayMs = 250
     private let stackAnimationSeconds = 5.0
     private let stackHoldMs = 600
+    private let sliceGridHoldMs = 500
+    private let bodyCrossfadeSeconds = 1.25
     private let bodyRevealSeconds = 1.7
     private let organCalloutDelayMs = 700
     private let analysisSteps = 28
@@ -40,6 +42,8 @@ struct ScanLoadingView: View {
     @State private var detailLine = "Priming half a million sound elements"
     @State private var ringPulse = false
     @State private var bodyRevealProgress: Double = 0
+    @State private var bodyCrossfade: Double = 0
+    @State private var bodyLayerVisible = false
     @State private var organCallout: String?
 
     var body: some View {
@@ -58,14 +62,15 @@ struct ScanLoadingView: View {
                 ZStack {
                     BodySliceGridView(fillFraction: sliceFillFraction)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .opacity(showsBody ? 0 : 1)
+                        .opacity(1 - bodyCrossfade)
 
-                    if showsBody {
+                    if bodyLayerVisible {
                         ScanRevealBodyView(revealProgress: bodyRevealProgress)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .transition(.opacity)
+                            .opacity(bodyCrossfade)
                     }
                 }
+                .animation(.easeInOut(duration: bodyCrossfadeSeconds), value: bodyCrossfade)
                 .frame(maxWidth: .infinity)
                 .frame(height: mediaHeight)
                 .padding(.horizontal, 12)
@@ -94,10 +99,6 @@ struct ScanLoadingView: View {
                 .opacity(ringPulse ? 0.6 : 0.3)
         }
         .allowsHitTesting(false)
-    }
-
-    private var showsBody: Bool {
-        phase == .revealing || phase == .analyzing || phase == .complete
     }
 
     /// Fraction of the contact-sheet grid revealed — fills cell-by-cell as slices acquire.
@@ -243,7 +244,10 @@ struct ScanLoadingView: View {
         case .initializing: return 0.05
         case .acquiring: return 0.1 + 0.45 * CGFloat(loadedSlices) / CGFloat(totalSlices)
         case .stacking: return 0.55 + 0.2 * CGFloat(stackProgress)
-        case .revealing: return 0.75 + 0.1 * CGFloat(bodyRevealProgress)
+        case .revealing:
+            let crossfadeWeight = bodyCrossfadeSeconds / (bodyCrossfadeSeconds + bodyRevealSeconds)
+            let revealWeight = 1 - crossfadeWeight
+            return 0.75 + 0.1 * CGFloat(bodyCrossfade * crossfadeWeight + bodyRevealProgress * revealWeight)
         case .analyzing: return 0.85 + 0.13 * CGFloat(analysisProgress)
         case .complete: return 1
         }
@@ -294,14 +298,28 @@ struct ScanLoadingView: View {
             try? await Task.sleep(for: .milliseconds(organCalloutDelayMs))
             organCallout = nil
 
+            try? await Task.sleep(for: .milliseconds(sliceGridHoldMs))
+
             statusLine = "Building volume"
             detailLine = "Reconstructing a sub-millimeter map of your body…"
             phase = .revealing
+            bodyLayerVisible = true
             bodyRevealProgress = 0
+            bodyCrossfade = 0
+
+            withAnimation(.easeInOut(duration: bodyCrossfadeSeconds)) {
+                bodyCrossfade = 1
+            }
+
+            let crossfadeLeadMs = Int(bodyCrossfadeSeconds * 0.45 * 1000)
+            try? await Task.sleep(for: .milliseconds(crossfadeLeadMs))
+
             withAnimation(.easeInOut(duration: bodyRevealSeconds)) {
                 bodyRevealProgress = 1
             }
-            try? await Task.sleep(for: .milliseconds(Int(bodyRevealSeconds * 1000)))
+
+            let revealTailMs = Int(bodyRevealSeconds * 1000) + Int(bodyCrossfadeSeconds * 0.55 * 1000)
+            try? await Task.sleep(for: .milliseconds(revealTailMs))
 
             statusLine = "Analyzing scan"
             detailLine = "Mapping anatomy · comparing baselines…"

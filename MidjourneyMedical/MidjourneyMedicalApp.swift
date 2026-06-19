@@ -13,6 +13,7 @@ struct MidjourneyMedicalApp: App {
 struct RootView: View {
     @State private var selectedTab: Tab = Tab.initial
     @State private var showMainApp = RootView.shouldStartInMainApp
+    @State private var timelineEntranceFromScan = false
 
     private static let lastSeenScanKey = "lastSeenScanToken"
 
@@ -50,15 +51,33 @@ struct RootView: View {
         ZStack {
             if showMainApp {
                 mainTabs
-                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                    .transition(
+                        .asymmetric(
+                            insertion: .opacity
+                                .combined(with: .scale(scale: 0.97))
+                                .combined(with: .offset(y: 12)),
+                            removal: .opacity
+                        )
+                    )
             } else {
-                ScanExperienceFlow {
-                    markScanSeen()
-                    withAnimation(.easeInOut(duration: 0.6)) {
-                        showMainApp = true
-                    }
-                }
-                .transition(.opacity)
+                ScanExperienceFlow(onComplete: enterMainApp)
+                    .transition(.opacity.combined(with: .scale(scale: 1.02)))
+            }
+        }
+        .animation(.easeInOut(duration: 0.65), value: showMainApp)
+    }
+
+    private func enterMainApp(landingTab: Tab) {
+        markScanSeen()
+        timelineEntranceFromScan = landingTab == .timeline
+        withAnimation(.easeInOut(duration: 0.65)) {
+            selectedTab = landingTab
+            showMainApp = true
+        }
+        if landingTab == .timeline {
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(1.2))
+                timelineEntranceFromScan = false
             }
         }
     }
@@ -67,8 +86,11 @@ struct RootView: View {
         Group {
             switch selectedTab {
             case .body: BodyView()
-            case .scan: ScanTabView()
-            case .timeline: TimelineView()
+            case .scan: ScanTabView(
+                selectedTab: $selectedTab,
+                timelineEntranceFromScan: $timelineEntranceFromScan
+            )
+            case .timeline: TimelineView(animateEntrance: timelineEntranceFromScan)
             case .compare: CompareView()
             case .insights: InsightsView()
             case .baseline: BaselineView()

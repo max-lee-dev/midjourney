@@ -3,8 +3,16 @@ import Charts
 
 /// Screen 2 — longitudinal trend of a chosen metric across all scans.
 struct TimelineView: View {
+    var animateEntrance: Bool = false
+
     @State private var selectedMetric: HealthMetric = .visceralFat
     @State private var selectedScanID: UUID?
+    @State private var contentAppeared: Bool
+
+    init(animateEntrance: Bool = false) {
+        self.animateEntrance = animateEntrance
+        _contentAppeared = State(initialValue: !animateEntrance)
+    }
 
     private var history: [(date: Date, value: Double)] { MockData.history(for: selectedMetric) }
     private var baseline: Double { MockData.baselineValue(for: selectedMetric) }
@@ -22,8 +30,19 @@ struct TimelineView: View {
                 scanStrip
             }
             .padding(20)
+            .opacity(contentAppeared ? 1 : 0)
+            .offset(y: contentAppeared ? 0 : 20)
         }
         .screenBackground()
+        .onAppear {
+            guard animateEntrance, !contentAppeared else {
+                contentAppeared = true
+                return
+            }
+            withAnimation(.easeOut(duration: 0.65).delay(0.12)) {
+                contentAppeared = true
+            }
+        }
     }
 
     private var metricPicker: some View {

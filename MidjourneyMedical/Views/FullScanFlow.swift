@@ -5,7 +5,7 @@ import SwiftUI
 /// the host can dismiss back to the Scan tab. (The preflight now runs inline on
 /// the Scan tab before this is presented.)
 struct FullScanFlow: View {
-    var onComplete: () -> Void
+    var onComplete: (RootView.Tab) -> Void
 
     enum FullScanStage { case sweep, process }
 
@@ -20,7 +20,7 @@ struct FullScanFlow: View {
                 }
                 .transition(.opacity)
             case .process:
-                ScanExperienceFlow { onComplete() }
+                ScanExperienceFlow(onComplete: onComplete)
                     .transition(.opacity)
             }
         }
@@ -28,6 +28,6 @@ struct FullScanFlow: View {
 }
 
 #Preview {
-    FullScanFlow(onComplete: {})
+    FullScanFlow(onComplete: { _ in })
         .preferredColorScheme(.dark)
 }

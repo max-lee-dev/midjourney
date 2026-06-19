@@ -71,16 +71,7 @@ struct ScanPreflightView: View {
     }
 
     private var readyControls: some View {
-        VStack(spacing: 16) {
-            Text("Just sound and water and 60 seconds.")
-                .font(.system(size: 13, weight: .medium))
-                .italic()
-                .foregroundStyle(Theme.textSecondary)
-                .multilineTextAlignment(.center)
-                .accessibilityLabel("Just sound and water and sixty seconds")
-
-            beginButton
-        }
+        beginButton
     }
 
     private var beginButton: some View {
