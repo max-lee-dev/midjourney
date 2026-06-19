@@ -21,7 +21,7 @@ struct TimelineView: View {
         ScrollView {
             VStack(spacing: 24) {
                 VStack(alignment: .leading, spacing: 16) {
-                    ScreenTitle(eyebrow: "Longitudinal", title: "Timeline")
+                    ScreenTitle(eyebrow: "Welcome back, Max", title: "Timeline")
                     metricPicker
                 }
 
