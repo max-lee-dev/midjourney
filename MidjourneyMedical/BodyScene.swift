@@ -304,11 +304,12 @@ enum BodySceneIdleMotion {
         basePosition: SCNVector3,
         lookAt: SCNVector3,
         at time: TimeInterval,
-        phase: Double = 0
+        phase: Double = 0,
+        strength: Float = 1
     ) {
         let t = time + phase
-        let angle = Float(sin(t * 0.14)) * 0.055
-        let bob = Float(sin(t * 0.11 + 1.0)) * 0.012
+        let angle = Float(sin(t * 0.14)) * 0.055 * strength
+        let bob = Float(sin(t * 0.11 + 1.0)) * 0.012 * strength
 
         let relX = basePosition.x - lookAt.x
         let relZ = basePosition.z - lookAt.z
@@ -509,6 +510,7 @@ struct WrappedBodyFocusView: UIViewRepresentable {
         private var focusAnimationFromRadius: Float = 0.14
         private var cameraRestPosition = SCNVector3(0, 0.02, 2.85)
         private var cameraRestLookAt = SCNVector3(0, 0.02, 0)
+        private var idleStartTime: TimeInterval = 0
 
         private static let focusModifier = """
         #pragma arguments
@@ -696,6 +698,7 @@ struct WrappedBodyFocusView: UIViewRepresentable {
             targetRadius = region.focusBandRadius
             focusAnimationDuration = animated ? 0.9 : 0
             focusAnimationStart = CACurrentMediaTime()
+            if !animated { idleStartTime = focusAnimationStart }
             focusActive = 1
 
             updateHighlightVolume(
@@ -759,6 +762,7 @@ struct WrappedBodyFocusView: UIViewRepresentable {
             focusActive = 0
             cameraRestPosition = SCNVector3(0, 0.02, 2.85)
             cameraRestLookAt = SCNVector3(0, 0.02, 0)
+            idleStartTime = CACurrentMediaTime() + duration
             SCNTransaction.begin()
             SCNTransaction.animationDuration = duration
             SCNTransaction.animationTimingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
@@ -814,7 +818,10 @@ struct WrappedBodyFocusView: UIViewRepresentable {
                 bandBloomNode?.position.y = animatedFocusY
                 highlightVolumeNode?.position.y = animatedFocusY
 
-                if t >= 1 { focusAnimationDuration = 0 }
+                if t >= 1 {
+                    focusAnimationDuration = 0
+                    idleStartTime = time
+                }
             }
 
             if focusAnimationDuration == 0 {
@@ -823,11 +830,18 @@ struct WrappedBodyFocusView: UIViewRepresentable {
                     // camera at its rest framing so zoom/position stay constant.
                     containerNode.eulerAngles.y = Float(time) * spinSpeed
                 } else {
+                    // Ease the drift in from zero so the camera holds exactly on the
+                    // last transition frame instead of snapping to an arbitrary point
+                    // in the idle sinusoid.
+                    let rampDuration: TimeInterval = 0.7
+                    let ramp = Float(min(1, max(0, (time - idleStartTime) / rampDuration)))
+                    let eased = ramp * ramp * (3 - 2 * ramp)
                     BodySceneIdleMotion.applyCameraPan(
                         to: cameraNode,
                         basePosition: cameraRestPosition,
                         lookAt: cameraRestLookAt,
-                        at: time
+                        at: time,
+                        strength: eased
                     )
                 }
             }
