@@ -223,14 +223,14 @@ enum BodyRegion: String, CaseIterable, Identifiable {
     /// Half-height of the vertical highlight band when this region is in focus.
     var focusBandHalfHeight: Float {
         switch self {
-        case .brain: return 0.13
-        case .heart: return 0.09
-        case .lungs: return 0.11
-        case .liver: return 0.08
-        case .kidneys: return 0.07
-        case .abdomen: return 0.10
-        case .muscles: return 0.13
-        case .skeleton: return 0.15
+        case .brain: return 0.15
+        case .heart: return 0.13
+        case .lungs: return 0.14
+        case .liver: return 0.12
+        case .kidneys: return 0.12
+        case .abdomen: return 0.13
+        case .muscles: return 0.14
+        case .skeleton: return 0.16
         }
     }
 

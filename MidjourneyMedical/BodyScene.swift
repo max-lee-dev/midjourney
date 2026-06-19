@@ -464,6 +464,8 @@ struct WrappedBodyFocusView: UIViewRepresentable {
         private var animatedRadius: Float = 0.14
         private var targetRadius: Float = 0.14
         private var focusTint = SIMD3<Float>(0.62, 0.82, 0.32)
+        private var focusAnchorX: Float = 0
+        private var focusAnchorZ: Float = 0
         private var focusActive: Float = 0
         private var focusAnimationStart: TimeInterval = 0
         private var focusAnimationDuration: TimeInterval = 0.9
@@ -476,6 +478,8 @@ struct WrappedBodyFocusView: UIViewRepresentable {
         private static let focusModifier = """
         #pragma arguments
         float focusY;
+        float focusX;
+        float focusZ;
         float focusHalfH;
         float focusRadius;
         float focusR;
@@ -484,15 +488,15 @@ struct WrappedBodyFocusView: UIViewRepresentable {
         float focusActive;
         #pragma body
         float dy = abs(_geometry.position.y - focusY);
-        float vertical = 1.0 - smoothstep(focusHalfH * 0.35, focusHalfH * 1.05, dy);
-        float2 deltaXZ = float2(_geometry.position.x, _geometry.position.z);
-        float radial = 1.0 - smoothstep(focusRadius * 0.25, focusRadius * 1.05, length(deltaXZ));
+        float vertical = 1.0 - smoothstep(focusHalfH * 0.35, focusHalfH * 1.15, dy);
+        float2 deltaXZ = float2(_geometry.position.x - focusX, _geometry.position.z - focusZ);
+        float radial = 1.0 - smoothstep(focusRadius * 0.30, focusRadius * 1.25, length(deltaXZ));
         float highlight = vertical * radial * focusActive;
-        float dim = focusActive < 0.01 ? 1.0 : mix(0.44, 1.0, highlight);
+        float dim = focusActive < 0.01 ? 1.0 : mix(0.40, 1.05, highlight);
         _geometry.color.rgb *= dim;
-        float band = exp(-pow(dy / max(focusHalfH * 0.55, 0.01), 2.0)) * radial * focusActive;
-        _geometry.color.rgb += float3(focusR, focusG, focusB) * band * 0.75;
-        _geometry.color.rgb += float3(focusR, focusG, focusB) * highlight * 0.34;
+        float band = exp(-pow(dy / max(focusHalfH * 0.62, 0.01), 2.0)) * radial * focusActive;
+        _geometry.color.rgb += float3(focusR, focusG, focusB) * band * 1.30;
+        _geometry.color.rgb += float3(focusR, focusG, focusB) * highlight * 0.70;
         if (focusActive < 0.01) {
             _geometry.color.rgb *= 1.28;
         }
@@ -505,6 +509,8 @@ struct WrappedBodyFocusView: UIViewRepresentable {
             let geometry = BodyPointCloud.build(statuses: statuses)
             geometry.shaderModifiers = [.geometry: Self.focusModifier]
             geometry.setValue(NSNumber(value: 0), forKey: "focusY")
+            geometry.setValue(NSNumber(value: 0), forKey: "focusX")
+            geometry.setValue(NSNumber(value: 0), forKey: "focusZ")
             geometry.setValue(NSNumber(value: 0.12), forKey: "focusHalfH")
             geometry.setValue(NSNumber(value: 0.14), forKey: "focusRadius")
             geometry.setValue(NSNumber(value: 0.62), forKey: "focusR")
@@ -644,6 +650,8 @@ struct WrappedBodyFocusView: UIViewRepresentable {
             let tint = Theme.color(for: statuses[region] ?? .normal)
             let rgb = simdTint(from: tint)
             focusTint = rgb
+            focusAnchorX = anchor.x
+            focusAnchorZ = anchor.z
 
             focusAnimationFromY = animatedFocusY
             focusAnimationFromHalfH = animatedHalfH
@@ -792,6 +800,8 @@ struct WrappedBodyFocusView: UIViewRepresentable {
             active: Float
         ) {
             bodyGeometry?.setValue(NSNumber(value: y), forKey: "focusY")
+            bodyGeometry?.setValue(NSNumber(value: focusAnchorX), forKey: "focusX")
+            bodyGeometry?.setValue(NSNumber(value: focusAnchorZ), forKey: "focusZ")
             bodyGeometry?.setValue(NSNumber(value: halfH), forKey: "focusHalfH")
             bodyGeometry?.setValue(NSNumber(value: radius), forKey: "focusRadius")
             bodyGeometry?.setValue(NSNumber(value: tint.x), forKey: "focusR")
