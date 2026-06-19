@@ -26,8 +26,8 @@ enum HealthMetric: String, CaseIterable, Identifiable {
     case visceralFat
     case boneDensity
     case liverFat
-    case restingHeartRate
-    case vo2max
+    case ejectionFraction
+    case lungCapacity
     case arterialStiffness
     case hydration
 
@@ -39,8 +39,8 @@ enum HealthMetric: String, CaseIterable, Identifiable {
         case .visceralFat: return "Visceral Fat"
         case .boneDensity: return "Bone Density"
         case .liverFat: return "Liver Fat"
-        case .restingHeartRate: return "Resting Heart Rate"
-        case .vo2max: return "VO\u{2082} Max"
+        case .ejectionFraction: return "Ejection Fraction"
+        case .lungCapacity: return "Lung Capacity"
         case .arterialStiffness: return "Arterial Stiffness"
         case .hydration: return "Hydration"
         }
@@ -52,8 +52,8 @@ enum HealthMetric: String, CaseIterable, Identifiable {
         case .visceralFat: return "Visc. Fat"
         case .boneDensity: return "Bone"
         case .liverFat: return "Liver"
-        case .restingHeartRate: return "Rest HR"
-        case .vo2max: return "VO\u{2082}"
+        case .ejectionFraction: return "EF"
+        case .lungCapacity: return "Lung Vol"
         case .arterialStiffness: return "Arterial"
         case .hydration: return "Water"
         }
@@ -65,8 +65,8 @@ enum HealthMetric: String, CaseIterable, Identifiable {
         case .visceralFat: return "L"
         case .boneDensity: return "g/cm\u{00B2}"
         case .liverFat: return "%"
-        case .restingHeartRate: return "bpm"
-        case .vo2max: return "ml/kg"
+        case .ejectionFraction: return "%"
+        case .lungCapacity: return "L"
         case .arterialStiffness: return "m/s"
         case .hydration: return "%"
         }
@@ -79,8 +79,8 @@ enum HealthMetric: String, CaseIterable, Identifiable {
         case .visceralFat: return .abdomen
         case .boneDensity: return .skeleton
         case .liverFat: return .liver
-        case .restingHeartRate: return .heart
-        case .vo2max: return .lungs
+        case .ejectionFraction: return .heart
+        case .lungCapacity: return .lungs
         case .arterialStiffness: return .brain
         case .hydration: return .kidneys
         }
@@ -89,16 +89,16 @@ enum HealthMetric: String, CaseIterable, Identifiable {
     /// Whether a higher value is clinically better.
     var higherIsBetter: Bool {
         switch self {
-        case .muscleMass, .boneDensity, .vo2max, .hydration: return true
-        case .visceralFat, .liverFat, .restingHeartRate, .arterialStiffness: return false
+        case .muscleMass, .boneDensity, .ejectionFraction, .lungCapacity, .hydration: return true
+        case .visceralFat, .liverFat, .arterialStiffness: return false
         }
     }
 
     func format(_ value: Double) -> String {
         switch self {
-        case .restingHeartRate, .vo2max:
+        case .ejectionFraction:
             return String(format: "%.0f", value)
-        case .muscleMass, .liverFat, .hydration:
+        case .muscleMass, .liverFat, .lungCapacity, .hydration:
             return String(format: "%.1f", value)
         default:
             return String(format: "%.2f", value)
@@ -182,8 +182,8 @@ enum BodyRegion: String, CaseIterable, Identifiable {
     var metric: HealthMetric {
         switch self {
         case .brain: return .arterialStiffness
-        case .heart: return .restingHeartRate
-        case .lungs: return .vo2max
+        case .heart: return .ejectionFraction
+        case .lungs: return .lungCapacity
         case .liver: return .liverFat
         case .kidneys: return .hydration
         case .abdomen: return .visceralFat
@@ -249,8 +249,8 @@ enum BodyRegion: String, CaseIterable, Identifiable {
     var blurb: String {
         switch self {
         case .brain: return "Vascular stiffness inferred from aortic pulse-wave velocity."
-        case .heart: return "Resting cardiac rhythm and chamber efficiency."
-        case .lungs: return "Aerobic capacity estimated from lung volume & perfusion."
+        case .heart: return "Left-ventricular ejection fraction from chamber-volume change."
+        case .lungs: return "Total lung volume from the air\u{2013}tissue boundary."
         case .liver: return "Hepatic fat fraction from tissue echogenicity."
         case .kidneys: return "Whole-body hydration via tissue water content."
         case .abdomen: return "Visceral adipose volume around the organs."

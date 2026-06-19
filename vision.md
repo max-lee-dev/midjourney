@@ -111,8 +111,8 @@ A **3D point-cloud figure** on a pure black canvas. Eight tappable anatomical re
 | Region | Metric |
 |---|---|
 | Brain & Vessels | Arterial stiffness (pulse-wave velocity) |
-| Heart | Resting heart rate |
-| Lungs | VO₂ max |
+| Heart | Ejection fraction (chamber-volume change) |
+| Lungs | Lung capacity (total lung volume) |
 | Liver | Hepatic fat fraction |
 | Kidneys | Hydration (tissue water) |
 | Abdomen | Visceral fat volume |
@@ -137,7 +137,7 @@ Designed for the moment someone asks: *"Did that bulk actually work? Did my visc
 
 AI-surfaced findings ranked by **significance** — not a flat list of numbers, but narrative cards with severity, trend direction, and anatomical context.
 
-Example from the demo data: visceral fat rising 66% over six scans while muscle and VO₂ improve — the kind of cross-metric story that only emerges when you have repeated whole-body reads.
+Example from the demo data: visceral fat rising 66% over six scans while muscle and lung capacity improve — the kind of cross-metric story that only emerges when you have repeated whole-body reads.
 
 ### Tab 5 — Baseline (`BaselineView`)
 
@@ -164,7 +164,7 @@ OrganScanResult               # post-scan "Wrapped" reveal per organ
 
 The demo narrative follows a **19-year-old male on a lean bulk** over ~2 years (6 scans):
 
-- Muscle mass, VO₂, resting HR → improving
+- Muscle mass, lung capacity, ejection fraction → improving
 - Visceral fat → quietly climbing, eventually flagged
 - A realistic story where gains and drift coexist
 

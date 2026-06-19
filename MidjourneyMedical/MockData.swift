@@ -1,8 +1,8 @@
 import Foundation
 
 /// All mock data for the prototype. One coherent 2-year story:
-/// a 19-year-old male on a lean bulk — muscle, VO2 and resting HR all
-/// improving, but visceral fat is quietly climbing and gets flagged.
+/// a 19-year-old male on a lean bulk — muscle, lung capacity, and ejection
+/// fraction all improving, but visceral fat is quietly climbing and gets flagged.
 enum MockData {
 
     /// Per-metric: (cohort baseline, values for the 6 chronological scans).
@@ -11,8 +11,8 @@ enum MockData {
         .visceralFat:       (1.10, [0.95, 1.05, 1.18, 1.30, 1.45, 1.58]),
         .boneDensity:       (1.18, [1.22, 1.23, 1.24, 1.24, 1.25, 1.26]),
         .liverFat:          (3.20, [2.60, 2.80, 2.70, 2.90, 3.00, 3.10]),
-        .restingHeartRate:  (64.0, [66.0, 63.0, 60.0, 58.0, 55.0, 53.0]),
-        .vo2max:            (44.0, [43.0, 45.0, 47.0, 49.0, 51.0, 53.0]),
+        .ejectionFraction:  (62.0, [60.0, 61.0, 62.0, 63.0, 64.0, 65.0]),
+        .lungCapacity:      (6.00, [5.80, 5.90, 6.00, 6.10, 6.20, 6.30]),
         .arterialStiffness: (5.40, [5.20, 5.30, 5.50, 5.70, 5.90, 6.10]),
         .hydration:         (60.0, [58.5, 61.0, 59.5, 62.0, 60.5, 57.5]),
     ]
@@ -84,19 +84,19 @@ enum MockData {
             significance: 0.58
         ),
         Insight(
-            title: "Aerobic capacity improving",
-            detail: "Your VO\u{2082} max climbed from 43 to 53 ml/kg over two years — an athlete-range trajectory, and one of the strongest signals we have for a longer, healthier life.",
+            title: "Lung capacity holding strong",
+            detail: "Total lung volume climbed from 5.8 to 6.3 L over two years and now sits in the 80th percentile for your cohort — a solid structural read from the air\u{2013}tissue boundary.",
             severity: .normal,
             region: .lungs,
             trend: .rising,
             significance: 0.51
         ),
         Insight(
-            title: "Resting heart rate dropping",
-            detail: "Resting HR fell from 66 to 53 bpm, consistent with improved cardiovascular fitness. Now in the 12th percentile (lower is better).",
+            title: "Heart pumping more efficiently",
+            detail: "Ejection fraction rose from 60% to 65% since your first scan, consistent with improved cardiovascular fitness. Now in the 70th percentile for your cohort.",
             severity: .normal,
             region: .heart,
-            trend: .falling,
+            trend: .rising,
             significance: 0.44
         ),
         Insight(
@@ -117,8 +117,8 @@ enum MockData {
         .visceralFat: 0.74,
         .boneDensity: 0.68,
         .liverFat: 0.40,
-        .restingHeartRate: 0.12,
-        .vo2max: 0.88,
+        .ejectionFraction: 0.70,
+        .lungCapacity: 0.80,
         .arterialStiffness: 0.58,
         .hydration: 0.45,
     ]
@@ -129,8 +129,8 @@ enum MockData {
         .visceralFat: 0.68,
         .boneDensity: 0.66,
         .liverFat: 0.38,
-        .restingHeartRate: 0.15,
-        .vo2max: 0.84,
+        .ejectionFraction: 0.66,
+        .lungCapacity: 0.76,
         .arterialStiffness: 0.52,
         .hydration: 0.48,
     ]
