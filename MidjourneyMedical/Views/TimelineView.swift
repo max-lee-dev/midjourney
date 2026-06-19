@@ -53,16 +53,23 @@ struct TimelineView: View {
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { selectedMetric = metric }
                     } label: {
-                        Text(metric.shortName.uppercased())
-                            .font(Theme.hudLabel(size: 11))
-                            .tracking(0.6)
-                            .foregroundStyle(isSelected ? Theme.background : Theme.textSecondary)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 9)
-                            .background(isSelected ? Theme.accent : Theme.surfaceElevated, in: Rectangle())
-                            .overlay(
-                                Rectangle().strokeBorder(Theme.stroke, lineWidth: isSelected ? 0 : 1)
+                        HStack(spacing: 7) {
+                            RegionIcon(
+                                region: metric.region,
+                                size: 16,
+                                color: isSelected ? Theme.background : Theme.textSecondary
                             )
+                            Text(metric.shortName.uppercased())
+                                .font(Theme.hudLabel(size: 11))
+                                .tracking(0.6)
+                        }
+                        .foregroundStyle(isSelected ? Theme.background : Theme.textSecondary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 9)
+                        .background(isSelected ? Theme.accent : Theme.surfaceElevated, in: Rectangle())
+                        .overlay(
+                            Rectangle().strokeBorder(Theme.stroke, lineWidth: isSelected ? 0 : 1)
+                        )
                     }
                     .buttonStyle(.plain)
                 }

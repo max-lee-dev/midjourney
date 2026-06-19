@@ -72,6 +72,20 @@ enum HealthMetric: String, CaseIterable, Identifiable {
         }
     }
 
+    /// The anatomical region this metric belongs to (reverse of `BodyRegion.metric`).
+    var region: BodyRegion {
+        switch self {
+        case .muscleMass: return .muscles
+        case .visceralFat: return .abdomen
+        case .boneDensity: return .skeleton
+        case .liverFat: return .liver
+        case .restingHeartRate: return .heart
+        case .vo2max: return .lungs
+        case .arterialStiffness: return .brain
+        case .hydration: return .kidneys
+        }
+    }
+
     /// Whether a higher value is clinically better.
     var higherIsBetter: Bool {
         switch self {

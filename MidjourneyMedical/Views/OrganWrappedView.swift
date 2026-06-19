@@ -36,15 +36,16 @@ struct OrganWrappedView: View {
     }
 
     private var focusedRegion: BodyRegion? {
-        guard hasEntered, index < results.count else { return nil }
-        return results[index].region
+        guard hasEntered else { return nil }
+        if index < results.count { return results[index].region }
+        return results.last?.region
     }
 
     var body: some View {
         ZStack {
             background
 
-            WrappedBodyFocusView(statuses: statusMap, focusedRegion: focusedRegion, ambient: isSummary)
+            WrappedBodyFocusView(statuses: statusMap, focusedRegion: focusedRegion, ambient: false)
                 .ignoresSafeArea()
 
             bottomScrim
