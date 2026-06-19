@@ -30,6 +30,8 @@ struct TimelineView: View {
                 scanStrip
             }
             .padding(20)
+            // Clear the floating scan button at the bottom.
+            .padding(.bottom, 92)
             .opacity(contentAppeared ? 1 : 0)
             .offset(y: contentAppeared ? 0 : 20)
         }

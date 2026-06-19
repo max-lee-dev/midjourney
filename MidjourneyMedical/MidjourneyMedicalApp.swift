@@ -32,18 +32,11 @@ struct RootView: View {
     }
 
     enum Tab: Hashable {
-        case body, scan, timeline, compare, insights, baseline
+        case scan, timeline
 
-        /// Allows the launch environment to choose the starting tab (used for snapshots).
+        /// Allows the launch environment to choose the starting screen (used for snapshots).
         static var initial: Tab {
-            switch ProcessInfo.processInfo.environment["START_TAB"] {
-            case "scan": return .scan
-            case "timeline": return .timeline
-            case "compare": return .compare
-            case "insights": return .insights
-            case "baseline": return .baseline
-            default: return .body
-            }
+            ProcessInfo.processInfo.environment["START_TAB"] == "scan" ? .scan : .timeline
         }
     }
 
@@ -82,178 +75,107 @@ struct RootView: View {
         }
     }
 
-    private var mainTabs: some View {
-        Group {
-            switch selectedTab {
-            case .body: BodyView()
-            case .scan: ScanTabView(
-                selectedTab: $selectedTab,
-                timelineEntranceFromScan: $timelineEntranceFromScan
-            )
-            case .timeline: TimelineView(animateEntrance: timelineEntranceFromScan)
-            case .compare: CompareView()
-            case .insights: InsightsView()
-            case .baseline: BaselineView()
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            CustomTabBar(selectedTab: $selectedTab)
-        }
-    }
-}
-
-/// Custom HUD bottom bar — Scan lives in the center as the emphasized, raised primary action.
-struct CustomTabBar: View {
-    @Binding var selectedTab: RootView.Tab
-
-    private struct Item: Identifiable {
-        let tab: RootView.Tab
-        let title: String
-        let icon: String
-        var id: RootView.Tab { tab }
-    }
-
-    private let leftItems: [Item] = [
-        Item(tab: .body, title: "Body", icon: "figure.stand"),
-        Item(tab: .timeline, title: "Timeline", icon: "chart.xyaxis.line"),
-    ]
-
-    private let rightItems: [Item] = [
-        Item(tab: .compare, title: "Compare", icon: "arrow.left.arrow.right"),
-        Item(tab: .baseline, title: "Baseline", icon: "person.2"),
-    ]
-
-    private let barHeight: CGFloat = 58
-    private let scanButtonSize: CGFloat = 52
-
-    private func handleSelect(_ tab: RootView.Tab) {
-        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+    private func handleSelect(_ tab: Tab) {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
             selectedTab = tab
         }
     }
 
-    private func tabButton(_ item: Item) -> some View {
-        let isSelected = selectedTab == item.tab
-        return Button {
-            handleSelect(item.tab)
-        } label: {
-            VStack(spacing: 5) {
-                Image(systemName: item.icon)
-                    .font(.system(size: 19, weight: isSelected ? .bold : .regular))
-                    .frame(height: 22)
-                    .scaleEffect(isSelected ? 1.05 : 1)
+    private var mainTabs: some View {
+        ZStack(alignment: .bottom) {
+            Group {
+                switch selectedTab {
+                case .scan:
+                    ScanTabView(
+                        selectedTab: $selectedTab,
+                        timelineEntranceFromScan: $timelineEntranceFromScan
+                    )
+                case .timeline:
+                    TimelineView(animateEntrance: timelineEntranceFromScan)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                Text(item.title)
-                    .hudCaptionStyle()
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+            if selectedTab == .timeline {
+                FloatingScanButton { handleSelect(.scan) }
+                    .padding(.bottom, 8)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-            .foregroundStyle(isSelected ? Theme.accent : Theme.textSecondary)
-            .frame(maxWidth: .infinity)
-            .frame(height: barHeight)
-            // Active-channel tick — a glowing gold marker on the top rail.
-            .overlay(alignment: .top) {
-                Rectangle()
-                    .fill(Theme.accent)
-                    .frame(width: 22, height: 2)
-                    .shadow(color: Theme.accent.opacity(0.9), radius: 5)
-                    .opacity(isSelected ? 1 : 0)
-                    .scaleEffect(x: isSelected ? 1 : 0.3, anchor: .center)
-            }
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(item.title)
-        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        .overlay(alignment: .topLeading) {
+            if selectedTab == .scan {
+                BackToTimelineButton { handleSelect(.timeline) }
+                    .transition(.opacity)
+            }
+        }
     }
+}
 
-    private var scanButton: some View {
-        let isSelected = selectedTab == .scan
-        return Button {
-            handleSelect(.scan)
-        } label: {
-            VStack(spacing: 5) {
+/// Always-available primary action on the Timeline — drops the user straight
+/// into the scan ritual. Hidden while the scan experience is on screen.
+struct FloatingScanButton: View {
+    var action: () -> Void
+
+    private let size: CGFloat = 62
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
                 ZStack {
-                    // Outer concentric HUD ring.
                     Circle()
-                        .strokeBorder(Theme.accent.opacity(isSelected ? 0.6 : 0.28), lineWidth: 1)
-                        .frame(width: scanButtonSize + 10, height: scanButtonSize + 10)
+                        .strokeBorder(Theme.accent.opacity(0.35), lineWidth: 1)
+                        .frame(width: size + 12, height: size + 12)
 
                     Circle()
                         .fill(
-                            isSelected
-                                ? LinearGradient(
-                                    colors: [Theme.accent, Theme.accentDeep],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                                : LinearGradient(
-                                    colors: [Theme.accent.opacity(0.16), Theme.accent.opacity(0.06)],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
+                            LinearGradient(
+                                colors: [Theme.accent, Theme.accentDeep],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
                         )
-                        .frame(width: scanButtonSize, height: scanButtonSize)
-                        .overlay(Circle().strokeBorder(Theme.accent.opacity(isSelected ? 0 : 0.55), lineWidth: 1))
-                        // Mask a clean cut-out where the button meets the bar.
+                        .frame(width: size, height: size)
                         .overlay(Circle().strokeBorder(Theme.background, lineWidth: 4))
 
                     Image(systemName: "viewfinder")
-                        .font(.system(size: 21, weight: .bold))
-                        .foregroundStyle(isSelected ? Color.black : Theme.accent)
+                        .font(.system(size: 26, weight: .bold))
+                        .foregroundStyle(Theme.background)
                 }
-                .shadow(color: Theme.accent.opacity(isSelected ? 0.5 : 0.18), radius: isSelected ? 12 : 6)
+                .shadow(color: Theme.accent.opacity(0.45), radius: 16, y: 4)
 
-                Text("Scan")
-                    .hudCaptionStyle()
-                    .foregroundStyle(isSelected ? Theme.accent : Theme.textSecondary)
+                Text("SCAN")
+                    .font(Theme.hudCaption(size: 9))
+                    .tracking(1.4)
+                    .foregroundStyle(Theme.accent)
             }
         }
         .buttonStyle(.plain)
-        .offset(y: -14)
-        .accessibilityLabel("Scan")
-        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        .accessibilityLabel("Begin a new scan")
     }
+}
+
+/// Lightweight chevron affordance shown on the Scan screen to return to the Timeline.
+struct BackToTimelineButton: View {
+    var action: () -> Void
 
     var body: some View {
-        ZStack {
-            HStack(spacing: 0) {
-                HStack(spacing: 0) {
-                    ForEach(leftItems, content: tabButton)
-                }
-                .frame(maxWidth: .infinity)
-
-                Color.clear
-                    .frame(width: scanButtonSize + 14)
-
-                HStack(spacing: 0) {
-                    ForEach(rightItems, content: tabButton)
-                }
-                .frame(maxWidth: .infinity)
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 13, weight: .bold))
+                Text("TIMELINE")
+                    .font(Theme.hudLabel(size: 12))
+                    .tracking(1)
             }
-            .frame(height: barHeight)
-
-            scanButton
+            .foregroundStyle(Theme.accent)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(Theme.accent.opacity(0.08), in: Rectangle())
+            .overlay(Rectangle().strokeBorder(Theme.accent.opacity(0.4), lineWidth: 1))
         }
-        .padding(.horizontal, 6)
-        .background(
-            LinearGradient(
-                colors: [Theme.surfaceElevated, Theme.background],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .background(Theme.background)
-            // Gold hairline that glows toward the center, fading at the edges.
-            .overlay(alignment: .top) {
-                LinearGradient(
-                    colors: [.clear, Theme.accent.opacity(0.5), .clear],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-                .frame(height: 1)
-            }
-            .ignoresSafeArea(edges: .bottom)
-        )
+        .buttonStyle(.plain)
+        .padding(.leading, 16)
+        .padding(.top, 8)
+        .accessibilityLabel("Back to timeline")
     }
 }

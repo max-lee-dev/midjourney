@@ -15,7 +15,7 @@ enum BodyPointCloud {
         return raw.isEmpty ? generateProcedural() : raw
     }
 
-    static func build(statuses: [BodyRegion: HealthStatus], focused: BodyRegion? = nil, tintStrength: Float = 1.0) -> SCNGeometry {
+    static func build(statuses: [BodyRegion: HealthStatus], focused: BodyRegion? = nil, tintStrength: Float = 1.0, colorful: Bool = false) -> SCNGeometry {
         var raw = loadPoints()
         if raw.isEmpty { raw = generateProcedural() }
 
@@ -30,10 +30,10 @@ enum BodyPointCloud {
 
         for p in raw {
             positions.append(SCNVector3(p.x, p.y, p.z))
-            let c = etherealColor(for: p, tints: tints, focused: focused, tintStrength: tintStrength)
+            let c = etherealColor(for: p, tints: tints, focused: focused, tintStrength: tintStrength, colorful: colorful)
             colors.append(c.x); colors.append(c.y); colors.append(c.z)
         }
-        return makeGeometry(positions: positions, colors: colors)
+        return makeGeometry(positions: positions, colors: colors, colorful: colorful)
     }
 
     /// Builds an anatomically-proportioned human point cloud in code
@@ -163,20 +163,26 @@ enum BodyPointCloud {
         for p: SIMD3<Float>,
         tints: [(region: BodyRegion, center: SIMD3<Float>, color: SIMD3<Float>)],
         focused: BodyRegion? = nil,
-        tintStrength: Float = 1.0
+        tintStrength: Float = 1.0,
+        colorful: Bool = false
     ) -> SIMD3<Float> {
-        let gray = SIMD3<Float>(0.66, 0.70, 0.76)
+        let base = colorful ? gradientColor(for: p) : SIMD3<Float>(0.66, 0.70, 0.76)
 
         // Keep the whole figure present, only gently dimming the extremities.
         let vertical = 0.82 + 0.18 * (1 - min(1, abs(p.y - 0.02) / 0.95))
-        // Key light from the front: the camera-facing surface is brightest.
-        let front = 0.30 + 0.70 * smoothstep(-0.14, 0.14, p.z)
+        // Key light from the front: the camera-facing surface is brightest. In
+        // colorful mode the floor is lifted so the back of the figure keeps its
+        // saturation as the body spins (instead of falling into shadow).
+        let front = colorful
+            ? 0.55 + 0.45 * smoothstep(-0.14, 0.14, p.z)
+            : 0.30 + 0.70 * smoothstep(-0.14, 0.14, p.z)
         // Subtle rim on the outer silhouette so the body's outline stays sharp.
         let rim = 0.12 * smoothstep(0.24, 0.33, abs(p.x))
         let shimmer = 0.97 + 0.03 * sin(p.y * 24 + p.x * 15 + p.z * 11)
-        let brightness = min(0.94, (front * vertical + rim) * shimmer * 0.82)
+        let ceiling: Float = colorful ? 1.0 : 0.94
+        let brightness = min(ceiling, (front * vertical + rim) * shimmer * 0.82)
 
-        var color = gray * brightness
+        var color = base * brightness
 
         // Strong tints widen the reach of each region and lift the saturation so
         // every region reads in its status color simultaneously (ambient view).
@@ -209,6 +215,26 @@ enum BodyPointCloud {
         return color
     }
 
+    /// Vivid vertical gradient (feet -> head) for the colorful scan look:
+    /// magenta -> violet -> blue -> cyan/teal. `p.y` runs ~-0.95 (feet) to
+    /// ~0.96 (head); a gentle lateral hue shift adds richness across the body.
+    private static func gradientColor(for p: SIMD3<Float>) -> SIMD3<Float> {
+        let stops: [SIMD3<Float>] = [
+            SIMD3(0.85, 0.25, 0.70), // feet — magenta
+            SIMD3(0.45, 0.35, 0.95), // hips/torso — violet
+            SIMD3(0.25, 0.55, 0.95), // chest — blue
+            SIMD3(0.30, 0.85, 0.85)  // head — cyan/teal
+        ]
+        let t = max(0, min(1, (p.y + 0.95) / 1.91))
+        let scaled = t * Float(stops.count - 1)
+        let idx = min(Int(scaled), stops.count - 2)
+        let frac = scaled - Float(idx)
+        var color = mix(stops[idx], stops[idx + 1], frac)
+        // Subtle lateral shift so left/right edges read with slightly different hue.
+        color += SIMD3(0.06, -0.03, 0.04) * p.x
+        return simd_clamp(color, SIMD3<Float>(repeating: 0), SIMD3<Float>(repeating: 1))
+    }
+
     private static func statusColor(_ status: HealthStatus) -> SIMD3<Float> {
         switch status {
         case .normal: return SIMD3(0.62, 0.82, 0.32)
@@ -219,7 +245,7 @@ enum BodyPointCloud {
 
     // MARK: Geometry assembly
 
-    private static func makeGeometry(positions: [SCNVector3], colors: [Float]) -> SCNGeometry {
+    private static func makeGeometry(positions: [SCNVector3], colors: [Float], colorful: Bool = false) -> SCNGeometry {
         let vertexSource = SCNGeometrySource(vertices: positions)
         let colorData = colors.withUnsafeBufferPointer { Data(buffer: $0) }
         let colorSource = SCNGeometrySource(
@@ -235,9 +261,9 @@ enum BodyPointCloud {
 
         let indices = (0..<positions.count).map { UInt32($0) }
         let element = SCNGeometryElement(indices: indices, primitiveType: .point)
-        element.pointSize = 2.2
-        element.minimumPointScreenSpaceRadius = 0.85
-        element.maximumPointScreenSpaceRadius = 2.6
+        element.pointSize = colorful ? 2.8 : 2.2
+        element.minimumPointScreenSpaceRadius = colorful ? 1.1 : 0.85
+        element.maximumPointScreenSpaceRadius = colorful ? 3.4 : 2.6
 
         let geometry = SCNGeometry(sources: [vertexSource, colorSource], elements: [element])
         let material = SCNMaterial()
@@ -406,15 +432,19 @@ struct WrappedBodyFocusView: UIViewRepresentable {
     let statuses: [BodyRegion: HealthStatus]
     let focusedRegion: BodyRegion?
     var ambient: Bool = false
+    var spin: Bool = false
+    var colorful: Bool = false
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeUIView(context: Context) -> SCNView {
+        context.coordinator.spin = spin
+        context.coordinator.colorful = colorful
         let view = SCNView()
         view.scene = context.coordinator.buildScene(statuses: statuses)
         view.backgroundColor = .clear
         view.isOpaque = false
-        view.antialiasingMode = .multisampling2X
+        view.antialiasingMode = colorful ? .multisampling4X : .multisampling2X
         view.allowsCameraControl = false
         view.autoenablesDefaultLighting = false
         view.rendersContinuously = true
@@ -451,6 +481,11 @@ struct WrappedBodyFocusView: UIViewRepresentable {
         private var lastStatuses: [BodyRegion: HealthStatus] = [:]
         private var ambientActive = false
         private var ambientStatuses: [BodyRegion: HealthStatus] = [:]
+
+        /// Continuous turntable spin (Scan Summary) — rotates the body in place.
+        var spin = false
+        var colorful = false
+        private let spinSpeed: Float = 0.3
 
         /// Ambient orbit framing — zoomed out to fit the whole body, steady spin.
         private let ambientRadius: Float = 3.62
@@ -506,7 +541,7 @@ struct WrappedBodyFocusView: UIViewRepresentable {
             let scene = SCNScene()
             scene.background.contents = UIColor.clear
 
-            let geometry = BodyPointCloud.build(statuses: statuses)
+            let geometry = BodyPointCloud.build(statuses: statuses, colorful: colorful)
             geometry.shaderModifiers = [.geometry: Self.focusModifier]
             geometry.setValue(NSNumber(value: 0), forKey: "focusY")
             geometry.setValue(NSNumber(value: 0), forKey: "focusX")
@@ -564,7 +599,7 @@ struct WrappedBodyFocusView: UIViewRepresentable {
             }
 
             if statuses != lastStatuses {
-                bodyNode?.geometry = BodyPointCloud.build(statuses: statuses)
+                bodyNode?.geometry = BodyPointCloud.build(statuses: statuses, colorful: colorful)
                 if let geometry = bodyNode?.geometry {
                     geometry.shaderModifiers = [.geometry: Self.focusModifier]
                     bodyGeometry = geometry
@@ -632,7 +667,7 @@ struct WrappedBodyFocusView: UIViewRepresentable {
         func applyFocus(_ region: BodyRegion, statuses: [BodyRegion: HealthStatus], animated: Bool) {
             if ambientActive {
                 ambientActive = false
-                bodyNode?.geometry = BodyPointCloud.build(statuses: statuses)
+                bodyNode?.geometry = BodyPointCloud.build(statuses: statuses, colorful: colorful)
                 if let geometry = bodyNode?.geometry {
                     geometry.shaderModifiers = [.geometry: Self.focusModifier]
                     bodyGeometry = geometry
@@ -713,7 +748,7 @@ struct WrappedBodyFocusView: UIViewRepresentable {
         func resetToFullBody(animated: Bool) {
             if ambientActive {
                 ambientActive = false
-                bodyNode?.geometry = BodyPointCloud.build(statuses: ambientStatuses)
+                bodyNode?.geometry = BodyPointCloud.build(statuses: ambientStatuses, colorful: colorful)
                 if let geometry = bodyNode?.geometry {
                     geometry.shaderModifiers = [.geometry: Self.focusModifier]
                     bodyGeometry = geometry
@@ -783,12 +818,18 @@ struct WrappedBodyFocusView: UIViewRepresentable {
             }
 
             if focusAnimationDuration == 0 {
-                BodySceneIdleMotion.applyCameraPan(
-                    to: cameraNode,
-                    basePosition: cameraRestPosition,
-                    lookAt: cameraRestLookAt,
-                    at: time
-                )
+                if spin {
+                    // Continuous turntable: rotate the body in place, keeping the
+                    // camera at its rest framing so zoom/position stay constant.
+                    containerNode.eulerAngles.y = Float(time) * spinSpeed
+                } else {
+                    BodySceneIdleMotion.applyCameraPan(
+                        to: cameraNode,
+                        basePosition: cameraRestPosition,
+                        lookAt: cameraRestLookAt,
+                        at: time
+                    )
+                }
             }
         }
 

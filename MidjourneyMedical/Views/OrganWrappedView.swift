@@ -241,7 +241,7 @@ struct OrganWrappedView: View {
 
             Spacer()
 
-            Button { onComplete(.body) } label: {
+            Button { onComplete(.timeline) } label: {
                 Text("SKIP")
                     .font(Theme.hudLabel(size: 12))
                     .tracking(0.8)

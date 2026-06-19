@@ -45,7 +45,7 @@ struct ScanSummaryView: View {
 
     private var heroBody: some View {
         ZStack(alignment: .bottom) {
-            WrappedBodyFocusView(statuses: statusMap, focusedRegion: nil)
+            WrappedBodyFocusView(statuses: statusMap, focusedRegion: nil, spin: true, colorful: true)
                 .frame(maxWidth: .infinity)
                 .frame(height: 340)
                 .mask(
